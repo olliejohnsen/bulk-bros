@@ -1,0 +1,22 @@
+services:
+  bulk-bros:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bulk-bros
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/data/db.sqlite
+      - POKEWALLET_API_KEY=${POKEWALLET_API_KEY}
+      - NODE_ENV=production
+    volumes:
+      # SQLite database — persisted across restarts
+      - db-data:/data
+      # Uploaded card images — persisted across restarts
+      - uploads-data:/app/public/uploads
+
+volumes:
+  db-data:
+  uploads-data:
