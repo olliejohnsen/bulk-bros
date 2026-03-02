@@ -18,6 +18,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { PokeWalletCard } from "@/lib/pokewallet";
 
+const SEARCH_PAGE_SIZE = 20;
+
 interface CardSearchProps {
   username: string;
   onUsernameChange: (v: string) => void;
@@ -28,38 +30,63 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PokeWalletCard[]>([]);
   const [searching, setSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selected, setSelected] = useState<PokeWalletCard | null>(null);
+  const [previewCard, setPreviewCard] = useState<PokeWalletCard | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim()) {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 3) {
       setResults([]);
+      setPage(1);
+      setTotalPages(1);
       return;
     }
-    debounceRef.current = setTimeout(() => runSearch(query), 500);
+    debounceRef.current = setTimeout(() => runSearch(trimmedQuery, 1), 600);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query]);
 
-  async function runSearch(q: string) {
-    setSearching(true);
+  async function runSearch(q: string, pageNum: number, append = false) {
+    if (pageNum === 1) setSearching(true);
+    else setLoadingMore(true);
     try {
       const res = await fetch(
-        `/api/pokewallet/search?q=${encodeURIComponent(q)}`
+        `/api/pokewallet/search?q=${encodeURIComponent(q)}&page=${pageNum}&limit=${SEARCH_PAGE_SIZE}`
       );
       if (!res.ok) {
         throw new Error(`Search failed: ${res.status}`);
       }
       const data = await res.json();
-      setResults(data.results ?? []);
+      const list = data.results ?? [];
+      const pagination = data.pagination ?? {};
+      const total = pagination.total_pages ?? 1;
+      setTotalPages(total);
+      setPage(pageNum);
+      if (append) {
+        setResults((prev) => [...prev, ...list]);
+      } else {
+        setResults(list);
+      }
     } catch {
       toast.error("Search failed. Please try again.");
     } finally {
       setSearching(false);
+      setLoadingMore(false);
+    }
+  }
+
+  function handleLoadMore() {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length >= 3 && page < totalPages) {
+      runSearch(trimmedQuery, page + 1, true);
     }
   }
 
@@ -223,18 +250,18 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
         <div className="rounded-lg border border-border/40 overflow-hidden shadow-sm bg-muted/10">
           <div className="px-4 py-2 bg-muted/30 border-b border-border/40 text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
             <span>{results.length} results</span>
-            <span className="opacity-40">click to select</span>
+            <span className="opacity-40">click to preview</span>
           </div>
           <div
             className="grid grid-cols-3 sm:grid-cols-4 gap-px bg-border/40 overflow-y-auto"
             style={{ maxHeight: "20rem" }}
           >
-            {results.map((card, i) => {
+            {results.map((card) => {
               const price = getPrice(card);
               return (
                 <button
                   key={card.id}
-                  onClick={() => setSelected(card)}
+                  onClick={() => setPreviewCard(card)}
                   className="relative bg-card p-3 flex flex-col items-center gap-2 hover:bg-muted/50 active:scale-95 transition-all duration-150 group"
                 >
                   <div className="relative w-full aspect-[2/3] rounded-sm overflow-hidden bg-muted border border-border/20 shadow-sm">
@@ -254,6 +281,97 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
                 </button>
               );
             })}
+          </div>
+          {page < totalPages && (
+            <div className="p-3 border-t border-border/40 bg-muted/20">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full h-10 font-black uppercase tracking-widest text-[10px]"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <Loader2 className="w-4 h-4 animate-spin stroke-[3]" />
+                ) : (
+                  `Load more (page ${page} of ${totalPages})`
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Card preview modal – larger view before selecting */}
+      {previewCard && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setPreviewCard(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Card preview"
+        >
+          <div
+            className={cn(
+              "relative rounded-2xl border border-border/60 bg-card shadow-2xl overflow-hidden",
+              "w-full max-w-sm sm:max-w-md animate-scale-in"
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewCard(null)}
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 border border-white/20 flex items-center justify-center text-white transition-colors"
+              aria-label="Close preview"
+            >
+              <X className="w-4 h-4 stroke-[3]" />
+            </button>
+            <div className="p-4 sm:p-6">
+              <div className="relative w-full aspect-[2/3] max-h-[320px] mx-auto rounded-xl overflow-hidden bg-muted border border-border/40 shadow-lg">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/pokewallet/image/${encodeURIComponent(previewCard.id)}?size=low`}
+                  alt={previewCard.card_info.name}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="mt-4 text-center space-y-2">
+                <p className="font-black text-sm sm:text-base uppercase tracking-tight">
+                  {previewCard.card_info.name}
+                </p>
+                {previewCard.card_info.set_name && (
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    {previewCard.card_info.set_name}
+                  </p>
+                )}
+                {previewCard.card_info.rarity && (
+                  <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-border/60 rounded-sm">
+                    {previewCard.card_info.rarity}
+                  </Badge>
+                )}
+                {getPrice(previewCard) && (
+                  <p className="text-sm font-black tabular-nums text-primary">{getPrice(previewCard)}</p>
+                )}
+              </div>
+            </div>
+            <div className="p-4 pt-0 flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 font-black uppercase tracking-widest text-[10px]"
+                onClick={() => setPreviewCard(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 font-black uppercase tracking-widest text-[10px]"
+                onClick={() => {
+                  setSelected(previewCard);
+                  setPreviewCard(null);
+                }}
+              >
+                Select this card
+              </Button>
+            </div>
           </div>
         </div>
       )}

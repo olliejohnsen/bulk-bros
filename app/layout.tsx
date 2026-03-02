@@ -10,10 +10,36 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://bulk-bros.app";
+
 export const metadata: Metadata = {
-  title: "Bulk Bros — Share your Pokémon bulk",
+  title: {
+    default: "Bulk Bros — Community Pokémon Bulk Gallery",
+    template: "%s | Bulk Bros",
+  },
   description:
-    "Upload and share your Pokémon bulk card collections with the community.",
+    "The community gallery for Pokémon bulk card only pullers. Share yours and discover others — become a Bulk Bro today!",
+  metadataBase: new URL(APP_URL),
+  openGraph: {
+    type: "website",
+    siteName: "Bulk Bros",
+    title: "Bulk Bros — Community Pokémon Bulk Gallery",
+    description:
+      "The community gallery for Pokémon bulk card only pullers. Share yours and discover others — become a Bulk Bro today!",
+    url: APP_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Bulk Bros — Community Pokémon Bulk Gallery",
+    description:
+      "The community gallery for Pokémon bulk card only pullers. Share yours and discover others — become a Bulk Bro today!",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Bulk Bros",
+  },
   icons: {
     icon: "/favicon.ico",
   },
@@ -26,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} antialiased min-h-screen bg-background text-foreground`}>
+      <body className={`${geistSans.variable} antialiased min-h-screen bg-mesh bg-grain`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -36,8 +62,17 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col">
             <Navbar />
             <main className="flex-1">{children}</main>
-            <footer className="border-t border-border/50 py-6 text-center text-xs text-muted-foreground/60">
-              bulk-bros &copy; {new Date().getFullYear()} · built for the community · not affiliated with Nintendo or The Pokémon Company
+            <footer className="border-t border-border/40 py-12">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col items-center text-center gap-6">
+                  <div className="font-black text-xl tracking-tighter">
+                    BULK<span className="text-primary">BROS</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground/60 max-w-3xl leading-relaxed font-medium">
+                    &copy; 2026 bulk-bros is not affiliated with, endorsed by, or connected to Nintendo, Creatures Inc., Game Freak, or The Pokémon Company. All Pokémon characters, names, and related indicia are &copy; Nintendo, Creatures Inc., Game Freak, The Pokémon Company.
+                  </p>
+                </div>
+              </div>
             </footer>
           </div>
           <Toaster richColors />

@@ -2,85 +2,54 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera, Search } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UploadForm } from "@/components/UploadForm";
+import { ArrowLeft, Search } from "lucide-react";
 import { CardSearch } from "@/components/CardSearch";
 
 export default function UploadPage() {
   const [sharedUsername, setSharedUsername] = useState("");
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Subtle grid pattern */}
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+    <div className="min-h-screen selection:bg-primary selection:text-primary-foreground relative">
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(var(--primary-rgb),0.05)_0%,transparent_50%)] pointer-events-none" />
 
-      <div className="relative max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-10">
-        <div className="space-y-6">
+      <div className="relative max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-24 space-y-12">
+        <div className="space-y-8">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors group"
+            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition-all group"
           >
-            <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform stroke-[3]" />
             Back to gallery
           </Link>
           
-          <div className="space-y-2">
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tighter leading-none animate-fade-in">
+          <div className="space-y-3">
+            <h1 className="text-5xl sm:text-6xl font-black tracking-tighter leading-[0.85] animate-fade-in">
               SHARE YOUR <br />
-              <span className="text-muted-foreground">BULK.</span>
+              <span className="text-primary relative">
+                BULK.
+                <span className="absolute -bottom-1 left-0 w-full h-2 bg-primary/20 -rotate-1 -z-10" />
+              </span>
             </h1>
-            <p className="text-sm text-muted-foreground font-medium max-w-xs animate-fade-in [animation-delay:100ms]">
-              Select a method to add your cards to the community collection.
+            <p className="text-base text-muted-foreground font-medium max-w-[280px] leading-snug animate-fade-in [animation-delay:100ms]">
+              Search for a card and add it to the community collection.
             </p>
           </div>
         </div>
 
-        <div className="bg-card border border-border/40 rounded-lg p-6 sm:p-8 shadow-2xl shadow-black/5 animate-fade-in [animation-delay:200ms]">
-          <Tabs defaultValue="search" className="w-full">
-            <TabsList className="w-full mb-8 p-1 h-auto bg-muted/50 rounded-md border border-border/40">
-              <TabsTrigger
-                value="search"
-                className="flex-1 gap-2 rounded-sm py-2 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-              >
-                <Search className="w-3 h-3 stroke-[3]" />
-                Search Database
-              </TabsTrigger>
-              <TabsTrigger
-                value="upload"
-                className="flex-1 gap-2 rounded-sm py-2 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
-              >
-                <Camera className="w-3 h-3 stroke-[3]" />
-                Upload Photo
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="search" className="mt-0 animate-scale-in">
-              <CardSearch
-                username={sharedUsername}
-                onUsernameChange={setSharedUsername}
-              />
-            </TabsContent>
-
-            <TabsContent value="upload" className="mt-0 animate-scale-in">
-              <UploadForm
-                username={sharedUsername}
-                onUsernameChange={setSharedUsername}
-              />
-            </TabsContent>
-          </Tabs>
+        <div className="neo-blur rounded-3xl p-6 sm:p-8 animate-fade-in [animation-delay:200ms]">
+          <CardSearch
+            username={sharedUsername}
+            onUsernameChange={setSharedUsername}
+          />
         </div>
 
-        {/* Tips / Info */}
-        <div className="grid grid-cols-2 gap-4 animate-fade-in [animation-delay:300ms]">
-          <div className="p-4 rounded-lg border border-border/40 bg-muted/20">
-            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tip</p>
-            <p className="text-[11px] font-medium leading-tight">Search is best for single pulls with clean metadata.</p>
+        <div className="p-5 rounded-2xl border border-border/40 bg-muted/20 flex flex-col gap-3 group hover:border-primary/30 transition-colors animate-fade-in [animation-delay:300ms]">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Search className="w-3.5 h-3.5 text-primary stroke-[3]" />
           </div>
-          <div className="p-4 rounded-lg border border-border/40 bg-muted/20">
-            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Tip</p>
-            <p className="text-[11px] font-medium leading-tight">Upload is best for showing off your physical stacks.</p>
-          </div>
+          <p className="text-[11px] font-bold leading-relaxed text-muted-foreground group-hover:text-foreground transition-colors">
+            Search by card name or set to find your pull, then add it with your trainer name.
+          </p>
         </div>
       </div>
     </div>
