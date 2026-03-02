@@ -10,6 +10,7 @@ services:
     environment:
       - DATABASE_URL=file:/data/db.sqlite
       - POKEWALLET_API_KEY=${POKEWALLET_API_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - NODE_ENV=production
     volumes:
       # SQLite database — persisted across restarts

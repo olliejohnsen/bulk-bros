@@ -9,7 +9,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const password = typeof body.password === "string" ? body.password : "";
+    const password = (typeof body.password === "string" ? body.password : "").trim();
 
     if (!password) {
       return NextResponse.json(

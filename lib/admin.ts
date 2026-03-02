@@ -4,11 +4,12 @@ const ADMIN_COOKIE_NAME = "admin_session";
 const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function getSecret(): string {
-  const secret = process.env.ADMIN_PASSWORD;
-  if (!secret) {
+  const raw = process.env.ADMIN_PASSWORD;
+  if (raw === undefined || raw === "") {
     throw new Error("ADMIN_PASSWORD is not set in environment");
   }
-  return secret;
+  // Trim so trailing newline/space in .env doesn't break login
+  return raw.trim();
 }
 
 export function createSessionToken(): string {
