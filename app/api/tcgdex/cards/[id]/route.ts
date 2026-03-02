@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   tcgdexCardUrl,
   type TCGdexCard,
+  type CardLanguageCode,
   DEFAULT_CARD_LANG,
   CARD_LANGUAGES,
 } from "@/lib/tcgdex";
 
-const VALID_LANGS = new Set(CARD_LANGUAGES.map((l) => l.code));
+const VALID_LANGS = new Set<string>(CARD_LANGUAGES.map((l) => l.code));
 
 export async function GET(
   request: NextRequest,
@@ -18,7 +19,8 @@ export async function GET(
   }
   const { searchParams } = new URL(request.url);
   const langParam = searchParams.get("lang")?.toLowerCase();
-  const lang = langParam && VALID_LANGS.has(langParam) ? langParam : DEFAULT_CARD_LANG;
+  const lang: CardLanguageCode =
+    langParam && VALID_LANGS.has(langParam) ? (langParam as CardLanguageCode) : DEFAULT_CARD_LANG;
 
   try {
     const url = tcgdexCardUrl(lang, id);
