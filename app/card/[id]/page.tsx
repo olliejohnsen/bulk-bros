@@ -106,7 +106,7 @@ async function CardContent({ id }: { id: string }) {
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Trainer</p>
               <Link
-                href={`/?username=${encodeURIComponent(card.username)}`}
+                href={`/trainer/${encodeURIComponent(card.username)}`}
                 className="text-base font-black uppercase tracking-tight hover:text-primary transition-colors"
               >
                 {card.username}

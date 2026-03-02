@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   tcgdexCardUrl,
+  getTcgdexImageUrl,
   type TCGdexCard,
   type CardLanguageCode,
   DEFAULT_CARD_LANG,
@@ -57,6 +58,7 @@ export async function GET(
     }
 
     const setTotal = card.set?.cardCount?.official;
+    const imageUrl = card.image ? getTcgdexImageUrl(card.image, "high") : undefined;
 
     return NextResponse.json({
       id: card.id,
@@ -65,6 +67,7 @@ export async function GET(
       set_name: card.set?.name,
       set_id: card.set?.id,
       set_total: setTotal,
+      imageUrl,
       pricing:
         marketPrice != null || card.set?.name
           ? {

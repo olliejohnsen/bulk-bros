@@ -84,9 +84,7 @@ export function CardGrid({
   }, [loadMore]);
 
   const handleUsernameClick = (u: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("username", u);
-    router.push(`/?${params.toString()}`);
+    router.push(`/trainer/${encodeURIComponent(u)}`);
   };
 
   if (cards.length === 0) {

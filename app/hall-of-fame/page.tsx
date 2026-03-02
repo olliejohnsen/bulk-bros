@@ -127,7 +127,7 @@ export default async function HallOfFamePage() {
                 {leaderboard.map((trainer, i) => (
                   <Link
                     key={trainer.username}
-                    href={`/?username=${encodeURIComponent(trainer.username)}`}
+                    href={`/trainer/${encodeURIComponent(trainer.username)}`}
                     className="group"
                   >
                     <div className="neo-blur rounded-2xl p-5 flex items-center justify-between transition-all duration-500 hover:translate-x-2 hover:bg-primary/5">

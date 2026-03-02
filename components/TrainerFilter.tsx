@@ -18,13 +18,11 @@ export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const select = (value: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
     if (!value) {
-      params.delete("username");
+      router.push("/");
     } else {
-      params.set("username", value);
+      router.push(`/trainer/${encodeURIComponent(value)}`);
     }
-    router.push(`/?${params.toString()}`);
     setIsOpen(false);
     setSearchQuery("");
   };

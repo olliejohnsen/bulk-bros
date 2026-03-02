@@ -107,6 +107,92 @@ export function tcgdexCardUrl(lang: string, cardId: string): string {
   return `${TCGDEX_API_BASE}/${lang}/cards/${encodeURIComponent(cardId)}`;
 }
 
+/** Server-side: fetch card from TCGdex and return id, name, set_name, localId, set_total, imageUrl. Returns null if not found or no image. */
+export async function fetchTcgdexCardDetails(
+  cardId: string,
+  lang: string
+): Promise<{
+  id: string;
+  name: string;
+  set_name?: string;
+  localId?: string;
+  set_total?: number;
+  imageUrl: string;
+} | null> {
+  const url = tcgdexCardUrl(lang, cardId);
+  const res = await fetch(url, { next: { revalidate: 3600 } });
+  if (!res.ok) return null;
+  const card = (await res.json()) as TCGdexCard;
+  if (!card.image) return null;
+  return {
+    id: card.id,
+    name: card.name,
+    set_name: card.set?.name,
+    localId: card.localId,
+    set_total: card.set?.cardCount?.official,
+    imageUrl: getTcgdexImageUrl(card.image, "high"),
+  };
+}
+
+/** TCGdex set list item (from /v2/{lang}/sets) */
+interface TCGdexSetBrief {
+  id: string;
+  name: string;
+  cardCount?: { total: number; official: number };
+}
+
+/** TCGdex set with full cards array (from /v2/{lang}/sets/{id}) */
+interface TCGdexSetFull {
+  id: string;
+  name: string;
+  cardCount?: { total: number; official: number };
+  cards: Array<{ id: string; name: string; localId?: string; image?: string }>;
+}
+
+/** Server-side: fetch a random card from the full TCGdex catalog (via random set). Returns same shape as fetchTcgdexCardDetails. */
+export async function fetchRandomTcgdexCard(lang: string): Promise<{
+  id: string;
+  name: string;
+  set_name?: string;
+  localId?: string;
+  set_total?: number;
+  imageUrl: string;
+} | null> {
+  // Try up to 3 different sets if the first one is empty or has no images
+  for (let setAttempt = 0; setAttempt < 3; setAttempt++) {
+    const page = Math.floor(Math.random() * 5) + 1; // Limit to first 5 pages (500 sets) to ensure we get populated sets
+    const setsUrl = `${TCGDEX_API_BASE}/${lang}/sets?pagination:page=${page}&pagination:itemsPerPage=100`;
+    const setsRes = await fetch(setsUrl, { next: { revalidate: 3600 } });
+    if (!setsRes.ok) continue;
+    
+    const sets = (await setsRes.json()) as TCGdexSetBrief[];
+    if (!Array.isArray(sets) || sets.length === 0) continue;
+
+    const set = sets[Math.floor(Math.random() * sets.length)];
+    const setUrl = `${TCGDEX_API_BASE}/${lang}/sets/${encodeURIComponent(set.id)}`;
+    const setRes = await fetch(setUrl, { next: { revalidate: 3600 } });
+    if (!setRes.ok) continue;
+    
+    const setFull = (await setRes.json()) as TCGdexSetFull;
+    if (!Array.isArray(setFull.cards) || setFull.cards.length === 0) continue;
+
+    const withImage = setFull.cards.filter((c) => c.image);
+    if (withImage.length === 0) continue;
+    
+    const card = withImage[Math.floor(Math.random() * withImage.length)];
+    const setTotal = setFull.cardCount?.official ?? set.cardCount?.official;
+    return {
+      id: card.id,
+      name: card.name,
+      set_name: setFull.name,
+      localId: card.localId,
+      set_total: setTotal,
+      imageUrl: getTcgdexImageUrl(card.image!, "high"),
+    };
+  }
+  return null;
+}
+
 /** Shape returned by our /api/tcgdex/search for the UI */
 export interface TCGdexSearchResult {
   id: string;

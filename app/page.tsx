@@ -95,6 +95,11 @@ async function getUsernames() {
 export default async function HomePage({ searchParams }: HomePageProps) {
   const { username, sort = "newest", search } = await searchParams;
 
+  if (username) {
+    const { redirect } = await import("next/navigation");
+    redirect(`/trainer/${encodeURIComponent(username)}`);
+  }
+
   const [{ cards: rawCards, nextCursor }, usernames, stats] =
     await Promise.all([
       getCards(username, sort, search),

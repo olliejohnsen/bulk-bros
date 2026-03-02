@@ -104,12 +104,10 @@ export function CardItem({ card, index = 0, onUsernameClick }: CardItemProps) {
 
         {/* Card footer */}
         <div className="px-4 py-4 flex items-center justify-between gap-3">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onUsernameClick?.(card.username);
-            }}
+          <Link
+            href={`/trainer/${encodeURIComponent(card.username)}`}
             className="flex items-center gap-2.5 group/user min-w-0 flex-1"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover/user:bg-primary transition-all duration-500 shadow-sm">
               <User className="w-4 h-4 text-primary group-hover/user:text-primary-foreground transition-colors stroke-[3]" />
@@ -124,7 +122,7 @@ export function CardItem({ card, index = 0, onUsernameClick }: CardItemProps) {
                   : "Verified Trainer"}
               </span>
             </div>
-          </button>
+          </Link>
 
           {/* Like button — Positioned in the footer for better UI balance */}
           <button

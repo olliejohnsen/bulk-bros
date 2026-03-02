@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, Sparkles, Menu, X, Trophy } from "lucide-react";
+import { Plus, LayoutGrid, Sparkles, Menu, X, Trophy, Grid3X3 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +64,18 @@ export function Navbar() {
               <Link href="/hall-of-fame" className="flex items-center gap-2">
                 <Trophy className="w-3 h-3 stroke-[3]" />
                 Hall of Fame
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-[10px] h-8 rounded-full font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all"
+            >
+              <Link href="/bingo" className="flex items-center gap-2">
+                <Grid3X3 className="w-3 h-3 stroke-[3]" />
+                Bulk Bingo
               </Link>
             </Button>
           </nav>
@@ -136,6 +148,18 @@ export function Navbar() {
             <Link href="/hall-of-fame">
               <Trophy className="w-4 h-4 stroke-[3]" />
               Hall of Fame
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="ghost"
+            className="w-full justify-start gap-3 rounded-2xl h-12 font-black uppercase tracking-widest text-[11px] hover:bg-primary/10 hover:text-primary"
+            onClick={() => setIsOpen(false)}
+          >
+            <Link href="/bingo">
+              <Grid3X3 className="w-4 h-4 stroke-[3]" />
+              Bulk Bingo
             </Link>
           </Button>
 
