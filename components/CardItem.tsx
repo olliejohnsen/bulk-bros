@@ -16,6 +16,7 @@ interface BulkCard {
   createdAt: string;
   cardName?: string | null;
   setName?: string | null;
+  language?: string | null;
   sameCardSlabCount?: number;
   sameCardSlabIndex?: number;
 }
@@ -96,6 +97,7 @@ export function CardItem({ card, index = 0, onUsernameClick }: CardItemProps) {
             imageUrl={card.imageUrl} 
             cardName={card.cardName} 
             setName={card.setName}
+            language={card.language}
             variant="gallery"
           />
         </Link>

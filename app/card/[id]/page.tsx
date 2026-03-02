@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
+import { getCardLanguageLabel } from "@/lib/tcgdex";
 import { CardLikeButton } from "@/components/CardLikeButton";
 import { CopyLinkButtonClient } from "@/components/CopyLinkButton";
 import { GradingSlab } from "@/components/GradingSlab";
@@ -70,7 +71,8 @@ async function CardContent({ id }: { id: string }) {
           cardId={card.id}
           imageUrl={card.imageUrl} 
           cardName={card.cardName} 
-          setName={card.setName} 
+          setName={card.setName}
+          language={card.language}
           className="w-full max-w-md mx-auto"
         />
       </div>
@@ -127,15 +129,30 @@ async function CardContent({ id }: { id: string }) {
             </div>
           </div>
 
-          {card.setName && (
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Tag className="w-4 h-4 text-primary stroke-[3]" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Set</p>
-                <p className="text-base font-bold">{card.setName}</p>
-              </div>
+          {(card.setName || card.language) && (
+            <div className="flex items-center gap-4 flex-wrap">
+              {card.setName && (
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Tag className="w-4 h-4 text-primary stroke-[3]" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Set</p>
+                    <p className="text-base font-bold">{card.setName}</p>
+                  </div>
+                </div>
+              )}
+              {card.language && (
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                    <Tag className="w-4 h-4 text-secondary stroke-[3]" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Language</p>
+                    <p className="text-base font-bold">{getCardLanguageLabel(card.language) ?? card.language}</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

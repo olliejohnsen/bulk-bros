@@ -18,15 +18,18 @@ export async function GET(
       return new NextResponse(null, { status: res.status });
     }
 
-    const buffer = await res.arrayBuffer();
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const headers = {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400",
+    };
 
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400",
-      },
-    });
+    // Stream the image body through when possible; otherwise buffer
+    if (res.body) {
+      return new NextResponse(res.body, { headers });
+    }
+    const buffer = await res.arrayBuffer();
+    return new NextResponse(buffer, { headers });
   } catch {
     return new NextResponse(null, { status: 502 });
   }

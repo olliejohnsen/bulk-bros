@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   output: "standalone",
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "assets.tcgdex.net",
+        pathname: "/**",
+      },
+    ],
   },
 };
 

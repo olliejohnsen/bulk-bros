@@ -3,13 +3,16 @@
 import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { ShieldCheck, Award, Fingerprint } from "lucide-react";
+import { getCardLanguageLabel } from "@/lib/tcgdex";
+import { ShieldCheck, Award, Fingerprint, ImageOff } from "lucide-react";
 
 interface GradingSlabProps {
   cardId: string;
   imageUrl: string;
   cardName?: string | null;
   setName?: string | null;
+  /** Card print language code (en, ja, ko, zh) for display */
+  language?: string | null;
   className?: string;
   showHolo?: boolean;
   variant?: "gallery" | "full";
@@ -20,6 +23,7 @@ export function GradingSlab({
   imageUrl,
   cardName,
   setName,
+  language,
   className,
   showHolo = true,
   variant = "full",
@@ -27,6 +31,7 @@ export function GradingSlab({
   const isGallery = variant === "gallery";
   const containerRef = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [imageError, setImageError] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
@@ -124,12 +129,25 @@ export function GradingSlab({
               )}>
                 {cardName || "Bulk Collection"}
               </h3>
-              <p className={cn(
-                "font-bold uppercase tracking-[0.1em] text-white/40 truncate leading-none mt-0.5",
-                isGallery ? "text-[6px]" : "text-[10px]"
-              )}>
-                {setName || "Pokémon TCG"}
-              </p>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <p className={cn(
+                  "font-bold uppercase tracking-[0.1em] text-white/40 truncate leading-none",
+                  isGallery ? "text-[6px]" : "text-[10px]"
+                )}>
+                  {setName || "Pokémon TCG"}
+                </p>
+                {language && getCardLanguageLabel(language) && (
+                  <span
+                    className={cn(
+                      "rounded px-1 font-bold text-white/70 bg-white/10 border border-white/20",
+                      isGallery ? "text-[5px]" : "text-[8px]"
+                    )}
+                    title={`Card language: ${getCardLanguageLabel(language)}`}
+                  >
+                    {getCardLanguageLabel(language)}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1 opacity-30 mt-2">
                 <Fingerprint className={cn("text-white", isGallery ? "w-2 h-2" : "w-2.5 h-2.5")} />
                 <span className={cn("font-mono font-black text-white uppercase tracking-tighter", isGallery ? "text-[5px]" : "text-[7px]")}>
@@ -163,14 +181,24 @@ export function GradingSlab({
         >
           <div className="absolute inset-0 border-[3px] border-black/40 pointer-events-none z-10" />
           <div className="relative w-full h-full rounded-md overflow-hidden bg-black/60">
-            <Image
-              src={imageUrl}
-              alt={cardName || "Graded Card"}
-              fill
-              className="object-contain p-1"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-            />
-            {showHolo && (
+            {imageError ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-white/50">
+                <ImageOff className={cn("text-white/40", isGallery ? "w-8 h-8" : "w-12 h-12")} strokeWidth={1.5} />
+                <span className={cn("font-bold uppercase tracking-wider text-center", isGallery ? "text-[8px]" : "text-[10px]")}>
+                  Image unavailable
+                </span>
+              </div>
+            ) : (
+              <Image
+                src={imageUrl}
+                alt={cardName || "Graded Card"}
+                fill
+                className="object-contain p-1"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                onError={() => setImageError(true)}
+              />
+            )}
+            {showHolo && !imageError && (
               <div 
                 className="absolute inset-0 holo-overlay opacity-20 group-hover/slab:opacity-60 transition-opacity duration-700" 
                 style={{ backgroundPosition: `${50 + tilt.y * 2}% ${50 + tilt.x * 2}%` }}

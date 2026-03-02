@@ -16,6 +16,7 @@ interface BulkCard {
   createdAt: string;
   cardName?: string | null;
   setName?: string | null;
+  language?: string | null;
   sameCardSlabCount?: number;
   sameCardSlabIndex?: number;
 }

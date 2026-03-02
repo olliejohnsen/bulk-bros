@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Search,
@@ -16,7 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PokeWalletCard } from "@/lib/pokewallet";
+import { type TCGdexSearchResult, getCardLanguageLabel } from "@/lib/tcgdex";
 
 const SEARCH_PAGE_SIZE = 20;
 
@@ -28,20 +27,36 @@ interface CardSearchProps {
 export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<PokeWalletCard[]>([]);
+  const [results, setResults] = useState<TCGdexSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selected, setSelected] = useState<PokeWalletCard | null>(null);
-  const [previewCard, setPreviewCard] = useState<PokeWalletCard | null>(null);
+  const [selected, setSelected] = useState<TCGdexSearchResult | null>(null);
+  const [previewCard, setPreviewCard] = useState<TCGdexSearchResult | null>(null);
+  const [previewDetails, setPreviewDetails] = useState<{
+    set_name?: string;
+    localId?: string;
+    set_total?: number;
+    marketPrice?: number;
+    currency?: string;
+    cardmarketAvg?: number;
+    cardmarketCurrency?: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
+  /** Cards for which we fell back to PNG after WebP failed */
+  const [triedPngIds, setTriedPngIds] = useState<Set<string>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmedQuery = query.trim();
+    setSearchError(null);
+    setFailedImageIds(new Set());
+    setTriedPngIds(new Set());
     if (trimmedQuery.length < 3) {
       setResults([]);
       setPage(1);
@@ -57,14 +72,23 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
   async function runSearch(q: string, pageNum: number, append = false) {
     if (pageNum === 1) setSearching(true);
     else setLoadingMore(true);
+    setSearchError(null);
     try {
       const res = await fetch(
-        `/api/pokewallet/search?q=${encodeURIComponent(q)}&page=${pageNum}&limit=${SEARCH_PAGE_SIZE}`
+        `/api/tcgdex/search?q=${encodeURIComponent(q)}&page=${pageNum}`
       );
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(`Search failed: ${res.status}`);
+        const msg = data.error ?? `Search failed (${res.status})`;
+        setSearchError(msg);
+        if (data.code === "rate_limit") {
+          toast.error("Rate limit reached. Please try again in a few minutes.");
+        } else {
+          toast.error(msg);
+        }
+        if (!append) setResults([]);
+        return;
       }
-      const data = await res.json();
       const list = data.results ?? [];
       const pagination = data.pagination ?? {};
       const total = pagination.total_pages ?? 1;
@@ -76,12 +100,67 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
         setResults(list);
       }
     } catch {
+      setSearchError("Search failed. Please try again.");
       toast.error("Search failed. Please try again.");
+      if (!append) setResults([]);
     } finally {
       setSearching(false);
       setLoadingMore(false);
     }
   }
+
+  function markImageFailed(id: string) {
+    setFailedImageIds((prev) => new Set(prev).add(id));
+  }
+
+  function tryPngFallback(
+    id: string,
+    card: TCGdexSearchResult,
+    target: HTMLImageElement,
+    quality: "low" | "high"
+  ) {
+    if (triedPngIds.has(id)) {
+      markImageFailed(id);
+      return;
+    }
+    const pngUrl = quality === "high" ? (card.imageUrlHighPng ?? card.imageUrlLowPng) : (card.imageUrlLowPng ?? card.imageUrlHighPng);
+    if (pngUrl) {
+      setTriedPngIds((prev) => new Set(prev).add(id));
+      target.src = pngUrl;
+    } else {
+      markImageFailed(id);
+    }
+  }
+
+  // Fetch full card details (set name, value) when preview opens
+  useEffect(() => {
+    if (!previewCard) {
+      setPreviewDetails(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewDetails(null);
+    fetch(`/api/tcgdex/cards/${encodeURIComponent(previewCard.id)}?lang=${encodeURIComponent(previewCard.language)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) {
+          const p = data.pricing;
+          setPreviewDetails({
+            set_name: data.set_name,
+            localId: data.localId,
+            set_total: data.set_total,
+            marketPrice: p?.marketPrice,
+            currency: p?.currency,
+            cardmarketAvg: p?.cardmarketAvg,
+            cardmarketCurrency: p?.cardmarketCurrency,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [previewCard?.id, previewCard?.language]);
 
   function handleLoadMore() {
     const trimmedQuery = query.trim();
@@ -99,10 +178,11 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
     try {
       const formData = new FormData();
       formData.append("username", username.trim());
-      formData.append("pokewallet_id", selected.id);
-      formData.append("card_name", selected.card_info.name);
-      if (selected.card_info.set_name) {
-        formData.append("set_name", selected.card_info.set_name);
+      formData.append("image_url", selected.imageUrlHigh);
+      formData.append("card_name", selected.name);
+      formData.append("language", selected.language);
+      if (selected.set_name) {
+        formData.append("set_name", selected.set_name);
       }
 
       const res = await fetch("/api/cards", { method: "POST", body: formData });
@@ -118,7 +198,7 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
       }
 
       setSubmitted(true);
-      toast.success(`${selected.card_info.name} added!`);
+      toast.success(`${selected.name} added!`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
       setSubmitting(false);
@@ -135,7 +215,7 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
         <div className="space-y-2">
           <h2 className="text-2xl font-black uppercase tracking-tighter">ADDED!</h2>
           <p className="text-sm text-muted-foreground font-medium">
-            {selected?.card_info.name} is now in your collection.
+            {selected?.name} is now in your collection.
           </p>
         </div>
         <div className="flex flex-col w-full gap-3 pt-4">
@@ -160,14 +240,6 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
         </div>
       </div>
     );
-  }
-
-  function getPrice(card: PokeWalletCard): string {
-    const tcgPrice = card.tcgplayer?.prices?.[0]?.market_price;
-    if (tcgPrice != null) return `$${tcgPrice.toFixed(2)}`;
-    const cmPrice = card.cardmarket?.prices?.[0]?.trend;
-    if (cmPrice != null) return `€${cmPrice.toFixed(2)}`;
-    return "";
   }
 
   return (
@@ -197,7 +269,7 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none stroke-[3]" />
           <Input
             id="card-search"
-            placeholder="e.g. Charizard ex, Pikachu, SV2a…"
+            placeholder="e.g. Bulbasaur 166, Charizard 006/165"
             value={query}
             onChange={(e) => {
               setSelected(null);
@@ -214,26 +286,31 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
       {/* Selected card preview */}
       {selected && (
         <div className="animate-scale-in rounded-lg border border-border/60 bg-muted/30 p-4 flex gap-4 items-center shadow-sm">
-          <div className="relative w-12 h-16 flex-shrink-0 rounded-md overflow-hidden shadow-md border border-border/40">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/pokewallet/image/${encodeURIComponent(selected.id)}?size=low`}
-              alt={selected.card_info.name}
-              className="w-full h-full object-cover"
-            />
+          <div className="relative w-12 h-16 flex-shrink-0 rounded-md overflow-hidden shadow-md border border-border/40 bg-muted flex items-center justify-center">
+            {failedImageIds.has(`${selected.id}-${selected.language}`) ? (
+              <span className="text-[8px] font-bold text-muted-foreground">No image</span>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={selected.imageUrlLow}
+                alt={selected.name}
+                className="w-full h-full object-cover"
+                onError={() => markImageFailed(`${selected.id}-${selected.language}`)}
+              />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-black text-xs uppercase tracking-tight truncate leading-none">{selected.card_info.name}</p>
-            {selected.card_info.set_name && (
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground truncate mt-1.5 leading-none">
-                {selected.card_info.set_name}
-              </p>
-            )}
-            {selected.card_info.rarity && (
-              <Badge variant="outline" className="text-[9px] mt-2 font-black uppercase tracking-widest border-border/60 rounded-sm px-1.5 py-0">
-                {selected.card_info.rarity}
-              </Badge>
-            )}
+            <p className="font-black text-xs uppercase tracking-tight truncate leading-none">{selected.name}</p>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              {selected.set_name && (
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground truncate leading-none">
+                  {selected.set_name}
+                </p>
+              )}
+              <span className="rounded px-1 font-bold text-muted-foreground bg-muted/50 text-[8px]">
+                {getCardLanguageLabel(selected.language)}
+              </span>
+            </div>
           </div>
           <button
             onClick={() => setSelected(null)}
@@ -242,6 +319,22 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
           >
             <X className="w-4 h-4 stroke-[3]" />
           </button>
+        </div>
+      )}
+
+      {/* Search error + retry */}
+      {searchError && query.trim().length >= 3 && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 flex flex-col gap-3">
+          <p className="text-sm font-medium text-destructive/90">{searchError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit font-black uppercase tracking-widest text-[10px]"
+            onClick={() => runSearch(query.trim(), 1)}
+          >
+            Try again
+          </Button>
         </div>
       )}
 
@@ -257,27 +350,39 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
             style={{ maxHeight: "20rem" }}
           >
             {results.map((card) => {
-              const price = getPrice(card);
+              const imageFailed = failedImageIds.has(`${card.id}-${card.language}`);
               return (
                 <button
-                  key={card.id}
+                  key={`${card.id}-${card.language}`}
                   onClick={() => setPreviewCard(card)}
                   className="relative bg-card p-3 flex flex-col items-center gap-2 hover:bg-muted/50 active:scale-95 transition-all duration-150 group"
                 >
-                  <div className="relative w-full aspect-[2/3] rounded-sm overflow-hidden bg-muted border border-border/20 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/pokewallet/image/${encodeURIComponent(card.id)}?size=low`}
-                      alt={card.card_info.name}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
+                  <div className="relative w-full aspect-[2/3] rounded-sm overflow-hidden bg-muted border border-border/20 shadow-sm flex items-center justify-center">
+                    {imageFailed ? (
+                      <span className="text-[10px] font-bold text-muted-foreground text-center px-1">
+                        No image
+                      </span>
+                    ) : (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={triedPngIds.has(`${card.id}-${card.language}`) && card.imageUrlLowPng ? card.imageUrlLowPng : card.imageUrlLow}
+                        alt={card.name}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        onError={(e) => tryPngFallback(`${card.id}-${card.language}`, card, e.currentTarget, "low")}
+                      />
+                    )}
                   </div>
                   <p className="text-[10px] font-bold leading-tight line-clamp-2 text-center w-full uppercase tracking-tighter">
-                    {card.card_info.name}
+                    {card.name}
+                    <span className="flex items-center justify-center gap-1 mt-0.5 flex-wrap">
+                      {card.localId && (
+                        <span className="text-muted-foreground font-normal">No. {card.localId}</span>
+                      )}
+                      <span className="rounded px-1 font-bold text-muted-foreground bg-muted/50 text-[8px]">
+                        {getCardLanguageLabel(card.language)}
+                      </span>
+                    </span>
                   </p>
-                  {price && (
-                    <span className="text-[9px] font-black tabular-nums text-primary">{price}</span>
-                  )}
                 </button>
               );
             })}
@@ -327,31 +432,47 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
               <X className="w-4 h-4 stroke-[3]" />
             </button>
             <div className="p-4 sm:p-6">
-              <div className="relative w-full aspect-[2/3] max-h-[320px] mx-auto rounded-xl overflow-hidden bg-muted border border-border/40 shadow-lg">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/pokewallet/image/${encodeURIComponent(previewCard.id)}?size=low`}
-                  alt={previewCard.card_info.name}
-                  className="w-full h-full object-contain"
-                />
+              <div className="relative w-full aspect-[2/3] max-h-[320px] mx-auto rounded-xl overflow-hidden bg-muted border border-border/40 shadow-lg flex items-center justify-center">
+                {failedImageIds.has(`${previewCard.id}-${previewCard.language}`) ? (
+                  <span className="text-sm font-bold text-muted-foreground">Image unavailable</span>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={triedPngIds.has(`${previewCard.id}-${previewCard.language}`) && previewCard.imageUrlHighPng ? previewCard.imageUrlHighPng : previewCard.imageUrlHigh}
+                    alt={previewCard.name}
+                    className="w-full h-full object-contain"
+                    onError={(e) => tryPngFallback(`${previewCard.id}-${previewCard.language}`, previewCard, e.currentTarget, "high")}
+                  />
+                )}
               </div>
               <div className="mt-4 text-center space-y-2">
                 <p className="font-black text-sm sm:text-base uppercase tracking-tight">
-                  {previewCard.card_info.name}
+                  {previewCard.name}
+                  {(previewDetails?.localId ?? previewCard.localId) && (
+                    <span className="block text-muted-foreground font-bold text-xs normal-case mt-1">
+                      {(previewDetails?.localId ?? previewCard.localId)}
+                      {previewDetails?.set_total != null ? `/${previewDetails.set_total}` : ""}
+                    </span>
+                  )}
                 </p>
-                {previewCard.card_info.set_name && (
+                {(previewDetails?.set_name ?? previewCard.set_name) && (
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    {previewCard.card_info.set_name}
+                    Pack: {previewDetails?.set_name ?? previewCard.set_name}
                   </p>
                 )}
-                {previewCard.card_info.rarity && (
-                  <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-border/60 rounded-sm">
-                    {previewCard.card_info.rarity}
-                  </Badge>
-                )}
-                {getPrice(previewCard) && (
-                  <p className="text-sm font-black tabular-nums text-primary">{getPrice(previewCard)}</p>
-                )}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Value:{" "}
+                  {previewCard && previewDetails === null
+                    ? "Loading…"
+                    : (previewDetails?.marketPrice != null || previewDetails?.cardmarketAvg != null)
+                      ? new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: (previewDetails?.marketPrice != null ? previewDetails.currency : previewDetails?.cardmarketCurrency) ?? "USD",
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).format(previewDetails?.marketPrice ?? previewDetails?.cardmarketAvg ?? 0)
+                      : "—"}
+                </p>
               </div>
             </div>
             <div className="p-4 pt-0 flex gap-3">
@@ -376,10 +497,19 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
         </div>
       )}
 
-      {query.trim() && !searching && results.length === 0 && (
-        <div className="text-center py-10 text-muted-foreground">
+      {query.trim().length >= 3 && !searching && results.length === 0 && !searchError && (
+        <div className="text-center py-10 text-muted-foreground space-y-3">
           <p className="text-xs font-black uppercase tracking-widest">No cards found</p>
-          <p className="text-[10px] font-medium mt-1">Try a different name or set code</p>
+          <p className="text-[10px] font-medium">The API may be busy or the search had no matches.</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="font-black uppercase tracking-widest text-[10px]"
+            onClick={() => runSearch(query.trim(), 1)}
+          >
+            Try again
+          </Button>
         </div>
       )}
 

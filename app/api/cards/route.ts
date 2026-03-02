@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { POKEWALLET_BASE, pokewalletHeaders } from "@/lib/pokewallet";
-import path from "path";
-import fs from "fs";
 
 const PAGE_SIZE = 20;
 
@@ -81,9 +78,11 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const username = (formData.get("username") as string | null)?.trim();
+    const imageUrlParam = (formData.get("image_url") as string | null)?.trim();
     const pokewalletId = formData.get("pokewallet_id") as string | null;
     const cardName = formData.get("card_name") as string | null;
     const setName = formData.get("set_name") as string | null;
+    const language = (formData.get("language") as string | null)?.trim() || undefined;
 
     if (!username) {
       return NextResponse.json(
@@ -92,52 +91,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!pokewalletId) {
+    let imageUrl: string;
+    if (imageUrlParam) {
+      imageUrl = imageUrlParam;
+    } else if (pokewalletId) {
+      imageUrl = `/api/pokewallet/image/${encodeURIComponent(pokewalletId)}?size=high`;
+    } else {
       return NextResponse.json(
-        { error: "A card must be selected from search (pokewallet_id is required)" },
+        { error: "A card must be selected from search (image_url or pokewallet_id required)" },
         { status: 400 }
       );
     }
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    let imageBuffer: Buffer;
-    try {
-      const headers = pokewalletHeaders();
-      const imgRes = await fetch(
-        `${POKEWALLET_BASE}/images/${encodeURIComponent(pokewalletId)}?size=high`,
-        { headers }
-      );
-      
-      if (!imgRes.ok) {
-        const errorText = await imgRes.text();
-        console.error("PokéWallet image fetch failed:", imgRes.status, errorText);
-        return NextResponse.json(
-          { error: `Failed to fetch card image from PokéWallet (Status: ${imgRes.status})` },
-          { status: 502 }
-        );
-      }
-      imageBuffer = Buffer.from(await imgRes.arrayBuffer());
-    } catch (err) {
-      console.error("PokéWallet fetch error:", err);
-      return NextResponse.json(
-        { error: "Failed to reach PokéWallet API for image" },
-        { status: 502 }
-      );
-    }
-
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-    fs.writeFileSync(path.join(uploadsDir, filename), imageBuffer);
-
     const card = await prisma.bulkCard.create({
       data: {
-        imageUrl: `/uploads/${filename}`,
+        imageUrl,
         username,
         cardName: cardName ?? undefined,
         setName: setName ?? undefined,
+        language: language ?? undefined,
       },
     });
 

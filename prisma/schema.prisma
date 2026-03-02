@@ -16,5 +16,7 @@ model BulkCard {
   likes     Int      @default(0)
   cardName  String?
   setName   String?
+  /** Card print language: en, ja, ko, zh (null = legacy/unknown) */
+  language  String?
   createdAt DateTime @default(now())
 }
