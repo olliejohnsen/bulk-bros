@@ -160,7 +160,7 @@ export function CardSearch({ username, onUsernameChange }: CardSearchProps) {
     return () => {
       cancelled = true;
     };
-  }, [previewCard?.id, previewCard?.language]);
+  }, [previewCard]);
 
   function handleLoadMore() {
     const trimmedQuery = query.trim();

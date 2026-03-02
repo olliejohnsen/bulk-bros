@@ -48,7 +48,7 @@ export default function UploadPage() {
             <Search className="w-3.5 h-3.5 text-primary stroke-[3]" />
           </div>
           <p className="text-[11px] font-bold leading-relaxed text-muted-foreground group-hover:text-foreground transition-colors">
-            Search in English, 日本語, 한국어, or 中文. Use card name and number (e.g. Bulbasaur 166), then add with your trainer name.
+            Search by name and number (e.g. Bulbasaur 166). Results show every print—English, 日本語, 한국어, 中文—pick the one you have and add it.
           </p>
         </div>
       </div>

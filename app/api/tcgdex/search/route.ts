@@ -8,7 +8,9 @@ import {
   type CardLanguageCode,
 } from "@/lib/tcgdex";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
+/** TCGdex may cap at ~20 per request; treat this as a full page for hasMore */
+const FULL_PAGE_THRESHOLD = 20;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -20,18 +22,22 @@ export async function GET(request: NextRequest) {
   const { name, localId } = parseCardSearchQuery(q);
 
   try {
-    // Query all languages in parallel so we get every print (e.g. Bulbasaur 166 in EN and JA)
-    const langResults = await Promise.all(
+    // Query all languages in parallel; track raw count for pagination (we filter out cards without image)
+    const langResponses = await Promise.all(
       CARD_LANGUAGES.map(async (langEntry) => {
         const url = tcgdexSearchUrl(langEntry.code, name, page, PAGE_SIZE, localId);
         const res = await fetch(url, { next: { revalidate: 300 } });
-        if (!res.ok) return [] as (TCGdexCardBrief & { _lang: CardLanguageCode })[];
+        if (!res.ok) return { filtered: [] as (TCGdexCardBrief & { _lang: CardLanguageCode })[], rawCount: 0 };
         const list = (await res.json()) as TCGdexCardBrief[];
-        return list
+        const filtered = list
           .filter((card) => card.image)
           .map((card) => ({ ...card, _lang: langEntry.code }));
+        return { filtered, rawCount: list.length };
       })
     );
+
+    const langResults = langResponses.map((r) => r.filtered);
+    const rawCounts = langResponses.map((r) => r.rawCount);
 
     const results = langResults.flat().map((card) => ({
       id: card.id,
@@ -45,8 +51,8 @@ export async function GET(request: NextRequest) {
       imageUrlHighPng: getTcgdexImageUrl(card.image!, "high", "png"),
     }));
 
-    const totalFetched = langResults.reduce((sum, arr) => sum + arr.length, 0);
-    const hasMore = totalFetched >= PAGE_SIZE * CARD_LANGUAGES.length;
+    // Use raw API count: if any language returned a full page, there may be more (TCGdex often caps at ~20)
+    const hasMore = rawCounts.some((count) => count >= FULL_PAGE_THRESHOLD);
     const totalPages = hasMore ? page + 1 : page;
 
     return NextResponse.json({
