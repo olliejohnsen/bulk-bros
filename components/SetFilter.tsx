@@ -2,15 +2,15 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { User, ChevronDown, Check, X, Search } from "lucide-react";
+import { Layers, ChevronDown, Check, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface TrainerFilterProps {
-  usernames: string[];
-  currentUsername: string | null;
+interface SetFilterProps {
+  sets: string[];
+  currentSet: string | null;
 }
 
-export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps) {
+export function SetFilter({ sets, currentSet }: SetFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
@@ -20,11 +20,11 @@ export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps
   const select = (value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     if (!value) {
-      params.delete("username");
-      router.push("/", { scroll: false });
+      params.delete("set");
     } else {
-      router.push(`/trainer/${encodeURIComponent(value)}`);
+      params.set("set", value);
     }
+    router.replace(`/?${params.toString()}`, { scroll: false });
     setIsOpen(false);
     setSearchQuery("");
   };
@@ -39,8 +39,8 @@ export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredUsernames = usernames.filter((u) =>
-    u.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSets = sets.filter((s) =>
+    s.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -49,15 +49,15 @@ export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex items-center gap-4 px-6 py-3 rounded-2xl border-2 transition-all duration-300 shadow-lg w-full sm:min-w-[240px] justify-between h-14",
-          currentUsername
-            ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
-            : "bg-card/50 backdrop-blur-md border-border/40 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+          currentSet
+            ? "bg-secondary text-secondary-foreground border-secondary shadow-secondary/20"
+            : "bg-card/50 backdrop-blur-md border-border/40 text-muted-foreground hover:border-secondary/30 hover:text-foreground"
         )}
       >
         <div className="flex items-center gap-3">
-          <User className={cn("w-4 h-4 stroke-[3]", currentUsername ? "text-primary-foreground" : "text-primary")} />
+          <Layers className={cn("w-4 h-4 stroke-[3]", currentSet ? "text-secondary-foreground" : "text-secondary")} />
           <span className="text-[11px] font-black uppercase tracking-[0.15em] truncate max-w-[140px]">
-            {currentUsername || "Filter by Trainer"}
+            {currentSet || "Filter by Set"}
           </span>
         </div>
         <ChevronDown className={cn("w-4 h-4 transition-transform duration-300 stroke-[3]", isOpen && "rotate-180")} />
@@ -70,10 +70,10 @@ export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground stroke-[3]" />
               <input
                 type="text"
-                placeholder="Search trainers..."
+                placeholder="Search sets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-background/50 border border-border/40 rounded-xl py-2 pl-9 pr-4 text-[10px] font-bold focus:outline-none focus:border-primary/50 transition-all"
+                className="w-full bg-background/50 border border-border/40 rounded-xl py-2 pl-9 pr-4 text-[10px] font-bold focus:outline-none focus:border-secondary/50 transition-all"
                 autoFocus
               />
             </div>
@@ -84,35 +84,35 @@ export function TrainerFilter({ usernames, currentUsername }: TrainerFilterProps
               onClick={() => select(null)}
               className={cn(
                 "w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                !currentUsername ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                !currentSet ? "bg-secondary/10 text-secondary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
               )}
             >
-              <span>All Trainers</span>
-              {!currentUsername && <Check className="w-3 h-3 stroke-[4]" />}
+              <span>All Sets</span>
+              {!currentSet && <Check className="w-3 h-3 stroke-[4]" />}
             </button>
 
-            {filteredUsernames.map((u) => (
+            {filteredSets.map((s) => (
               <button
-                key={u}
-                onClick={() => select(u)}
+                key={s}
+                onClick={() => select(s)}
                 className={cn(
                   "w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  currentUsername === u ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  currentSet === s ? "bg-secondary/10 text-secondary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
                 )}
               >
-                <span className="truncate">{u}</span>
-                {currentUsername === u && <Check className="w-3 h-3 stroke-[4]" />}
+                <span className="truncate">{s}</span>
+                {currentSet === s && <Check className="w-3 h-3 stroke-[4]" />}
               </button>
             ))}
 
-            {filteredUsernames.length === 0 && (
+            {filteredSets.length === 0 && (
               <div className="py-8 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                No trainers found
+                No sets found
               </div>
             )}
           </div>
 
-          {currentUsername && (
+          {currentSet && (
             <div className="p-2 border-t border-border/40 bg-muted/10">
               <button
                 onClick={() => select(null)}

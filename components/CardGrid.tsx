@@ -27,6 +27,7 @@ interface CardGridProps {
   username?: string | null;
   sort?: string;
   search?: string;
+  set?: string | null;
 }
 
 export function CardGrid({
@@ -35,6 +36,7 @@ export function CardGrid({
   username,
   sort = "newest",
   search,
+  set,
 }: CardGridProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,6 +55,7 @@ export function CardGrid({
       if (username) params.set("username", username);
       if (sort && sort !== "newest") params.set("sort", sort);
       if (search) params.set("search", search);
+      if (set) params.set("set", set);
 
       const res = await fetch(`/api/cards?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");

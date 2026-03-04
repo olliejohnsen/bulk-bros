@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { CardGrid } from "@/components/CardGrid";
 import { TrainerFilter } from "@/components/TrainerFilter";
+import { SetFilter } from "@/components/SetFilter";
 import { SearchAndSort } from "@/components/SearchAndSort";
 import { Button } from "@/components/ui/button";
 import { Trophy, User as UserIcon } from "lucide-react";
@@ -21,11 +22,12 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
 
-async function getCards(username?: string, sort = "newest", search?: string) {
+async function getCards(username?: string, sort = "newest", search?: string, set?: string) {
   const where = {
     ...(username ? { username } : {}),
+    ...(set ? { setName: set } : {}),
     ...(search
-      ? { OR: [{ cardName: { contains: search } }, { username: { contains: search } }] }
+      ? { OR: [{ cardName: { contains: search } }, { username: { contains: search } }, { setName: { contains: search } }] }
       : {}),
   };
   const orderBy =
@@ -92,18 +94,30 @@ async function getUsernames() {
   return result.map((r) => r.username);
 }
 
+async function getSets() {
+  const result = await prisma.bulkCard.findMany({
+    where: { setName: { not: null } },
+    select: { setName: true },
+    distinct: ["setName"],
+    orderBy: { setName: "asc" },
+  });
+  return result.map((r) => r.setName as string);
+}
+
 export default async function HomePage({ searchParams }: HomePageProps) {
   const { username, sort = "newest", search } = await searchParams;
+  const currentSet = (await searchParams).set;
 
   if (username) {
     const { redirect } = await import("next/navigation");
     redirect(`/trainer/${encodeURIComponent(username)}`);
   }
 
-  const [{ cards: rawCards, nextCursor }, usernames, stats] =
+  const [{ cards: rawCards, nextCursor }, usernames, sets, stats] =
     await Promise.all([
-      getCards(username, sort, search),
+      getCards(username, sort, search, currentSet),
       getUsernames(),
+      getSets(),
       getStats(),
     ]);
 
@@ -166,37 +180,52 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Gallery */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 space-y-8">
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-black tracking-tight">THE GALLERY</h2>
-              <p className="text-sm text-muted-foreground font-medium">
+        <div className="flex flex-col gap-10">
+          <div className="flex flex-col gap-10">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black tracking-tight italic">THE GALLERY</h2>
+              <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest opacity-70">
                 Browse the latest bulk uploads from the community.
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              <Suspense fallback={null}>
-                <SearchAndSort currentSort={sort} currentSearch={search ?? ""} />
-              </Suspense>
-              
-              {usernames.length > 0 && (
+            <div className="flex flex-col gap-8">
+              <div className="w-full">
                 <Suspense fallback={null}>
-                  <TrainerFilter usernames={usernames} currentUsername={username ?? null} />
+                  <SearchAndSort currentSort={sort} currentSearch={search ?? ""} />
                 </Suspense>
-              )}
+              </div>
+              
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6">
+                <div className="flex-1 sm:flex-none min-w-[240px]">
+                  {usernames.length > 0 && (
+                    <Suspense fallback={null}>
+                      <TrainerFilter usernames={usernames} currentUsername={username ?? null} />
+                    </Suspense>
+                  )}
+                </div>
+
+                <div className="flex-1 sm:flex-none min-w-[240px]">
+                  {sets.length > 0 && (
+                    <Suspense fallback={null}>
+                      <SetFilter sets={sets} currentSet={currentSet ?? null} />
+                    </Suspense>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <Suspense fallback={<CardGridSkeleton />}>
           <CardGrid
-            key={`${username ?? ""}-${sort}-${search ?? ""}`}
+            key={`${username ?? ""}-${currentSet ?? ""}-${sort}-${search ?? ""}`}
             initialCards={cards}
             initialNextCursor={nextCursor}
             username={username}
             sort={sort}
             search={search}
+            set={currentSet}
           />
         </Suspense>
       </section>

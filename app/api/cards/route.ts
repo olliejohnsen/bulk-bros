@@ -14,11 +14,13 @@ export async function GET(request: NextRequest) {
 
     const where = {
       ...(username ? { username } : {}),
+      ...(searchParams.get("set") ? { setName: searchParams.get("set")! } : {}),
       ...(search
         ? {
             OR: [
               { cardName: { contains: search } },
               { username: { contains: search } },
+              { setName: { contains: search } },
             ],
           }
         : {}),
@@ -29,7 +31,9 @@ export async function GET(request: NextRequest) {
         ? { likes: "desc" as const }
         : sort === "oldest"
           ? { createdAt: "asc" as const }
-          : { createdAt: "desc" as const };
+          : sort === "set"
+            ? { setName: "asc" as const }
+            : { createdAt: "desc" as const };
 
     const cards = await prisma.bulkCard.findMany({
       where,

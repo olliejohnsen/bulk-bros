@@ -176,7 +176,23 @@ export async function fetchRandomTcgdexCard(lang: string): Promise<{
     const setFull = (await setRes.json()) as TCGdexSetFull;
     if (!Array.isArray(setFull.cards) || setFull.cards.length === 0) continue;
 
-    const withImage = setFull.cards.filter((c) => c.image);
+    const withImage = setFull.cards.filter((c) => {
+      if (!c.image) return false;
+      const lowerName = c.name.toLowerCase();
+      const lowerId = c.id.toLowerCase();
+      
+      const isSpecial = 
+        lowerName.includes("holo") || 
+        lowerName.includes("reverse") || 
+        lowerName.includes("poké ball") || 
+        lowerName.includes("pokeball") || 
+        lowerName.includes("master ball") || 
+        lowerName.includes("masterball") ||
+        lowerId.includes("-re") || 
+        lowerId.includes("-ho");
+        
+      return !isSpecial;
+    });
     if (withImage.length === 0) continue;
     
     const card = withImage[Math.floor(Math.random() * withImage.length)];

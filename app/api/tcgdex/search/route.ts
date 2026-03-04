@@ -29,9 +29,31 @@ export async function GET(request: NextRequest) {
         const res = await fetch(url, { next: { revalidate: 300 } });
         if (!res.ok) return { filtered: [] as (TCGdexCardBrief & { _lang: CardLanguageCode })[], rawCount: 0 };
         const list = (await res.json()) as TCGdexCardBrief[];
+        
+        // Filter out holos, reverse holos, and special patterns (pokeball, masterball)
+        // TCGdex often includes variant info in the name or ID for these
         const filtered = list
-          .filter((card) => card.image)
+          .filter((card) => {
+            if (!card.image) return false;
+            
+            const lowerName = card.name.toLowerCase();
+            const lowerId = card.id.toLowerCase();
+            
+            // Common patterns for special cards in TCGdex
+            const isSpecial = 
+              lowerName.includes("holo") || 
+              lowerName.includes("reverse") || 
+              lowerName.includes("poké ball") || 
+              lowerName.includes("pokeball") || 
+              lowerName.includes("master ball") || 
+              lowerName.includes("masterball") ||
+              lowerId.includes("-re") || // Common suffix for reverse
+              lowerId.includes("-ho");   // Common suffix for holo
+              
+            return !isSpecial;
+          })
           .map((card) => ({ ...card, _lang: langEntry.code }));
+          
         return { filtered, rawCount: list.length };
       })
     );
