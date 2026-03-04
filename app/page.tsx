@@ -15,6 +15,7 @@ interface HomePageProps {
     username?: string;
     sort?: string;
     search?: string;
+    set?: string;
   }>;
 }
 
@@ -105,8 +106,7 @@ async function getSets() {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const { username, sort = "newest", search } = await searchParams;
-  const currentSet = (await searchParams).set;
+  const { username, sort = "newest", search, set: currentSet } = await searchParams;
 
   if (username) {
     const { redirect } = await import("next/navigation");
