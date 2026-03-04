@@ -3,11 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { CardGrid } from "@/components/CardGrid";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, TrendingUp, CreditCard, BarChart3, Trophy } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowLeft, User, Trophy } from "lucide-react";
 import { SlabSkeleton } from "@/components/SlabSkeleton";
-import { fetchTcgdexCardDetails } from "@/lib/tcgdex";
+import { TrainerStats } from "@/components/TrainerStats";
 
 interface TrainerPageProps {
   params: Promise<{
@@ -24,58 +22,6 @@ async function getTrainerData(username: string) {
   });
 
   if (cards.length === 0) return null;
-
-  // We need to fetch pricing for each unique card to calculate totals
-  // In a real app, we'd cache this or store it in the DB.
-  // For now, we'll fetch them in parallel.
-  const uniqueImageUrls = [...new Set(cards.map(c => c.imageUrl))];
-  
-  // Extract TCGdex IDs from image URLs if possible, or just use the first card's ID
-  // This is a bit of a heuristic since we don't store the TCGdex ID directly in BulkCard
-  // Let's try to get pricing for each card.
-  
-  const cardDetails = await Promise.all(
-    cards.map(async (card) => {
-      // Heuristic: try to find the card in TCGdex to get pricing
-      // The pattern is assets.tcgdex.net/{lang}/{serie}/{set}/{id}/high.webp
-      try {
-        const match = card.imageUrl.match(/assets\.tcgdex\.net\/([^\/]+)\/([^\/]+)\/([^\/]+)\/([^\/]+)/);
-        if (match) {
-          const lang = match[1];
-          const setId = match[3];
-          const localId = match[4];
-          const tcgdexId = `${setId}-${localId}`;
-          
-          const res = await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${tcgdexId}`, { next: { revalidate: 3600 } });
-          if (res.ok) {
-            const data = await res.json();
-            let price = 0;
-            
-            // Try to find the best price
-            if (data.pricing?.tcgplayer) {
-              const p = data.pricing.tcgplayer;
-              // Normal, then reverse, then holofoil
-              const variant = p.normal || p.reverse || p["reverse-holofoil"] || p.holofoil;
-              price = variant?.marketPrice || variant?.midPrice || 0;
-            } 
-            
-            if (price === 0 && data.pricing?.cardmarket) {
-              price = data.pricing.cardmarket.avg || data.pricing.cardmarket.low || 0;
-            }
-            
-            return { ...card, price };
-          }
-        }
-      } catch (e) {
-        console.error(`Error fetching price for card ${card.id}:`, e);
-      }
-      return { ...card, price: 0 };
-    })
-  );
-
-  const totalCards = cards.length;
-  const totalValue = cardDetails.reduce((sum, c) => sum + c.price, 0);
-  const avgValue = totalCards > 0 ? totalValue / totalCards : 0;
 
   // Enrich cards for the grid (same logic as home page)
   const imageUrls = [...new Set(cards.map((c) => c.imageUrl))];
@@ -104,9 +50,6 @@ async function getTrainerData(username: string) {
 
   return {
     username,
-    totalCards,
-    totalValue,
-    avgValue,
     cards: enrichedCards,
   };
 }
@@ -159,48 +102,8 @@ export default async function TrainerPage({ params }: TrainerPageProps) {
               </div>
             </div>
 
-            {/* Auto-generated Summary Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 w-full lg:w-auto">
-              {[
-                { 
-                  label: "Total Bulk", 
-                  value: data.totalCards, 
-                  icon: CreditCard,
-                  suffix: " Cards"
-                },
-                { 
-                  label: "Total Value", 
-                  value: `$${data.totalValue.toFixed(2)}`, 
-                  icon: TrendingUp,
-                  color: "text-secondary"
-                },
-                { 
-                  label: "Avg Value", 
-                  value: `$${data.avgValue.toFixed(2)}`, 
-                  icon: BarChart3,
-                  color: "text-primary"
-                }
-              ].map((stat) => (
-                <div key={stat.label} className="bg-background/50 backdrop-blur-sm border border-primary/10 rounded-3xl p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <stat.icon className={cn("w-5 h-5 opacity-50", stat.color || "text-foreground")} />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                      {stat.label}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className={cn("text-3xl font-black tabular-nums tracking-tighter", stat.color || "text-foreground")}>
-                      {stat.value}
-                    </span>
-                    {stat.suffix && (
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
-                        {stat.suffix}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Auto-generated Summary Stats (Client-side fetch) */}
+            <TrainerStats cards={data.cards} />
           </div>
         </div>
       </div>
